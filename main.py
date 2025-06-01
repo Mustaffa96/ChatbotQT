@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (
     QSizePolicy
 )
 from PyQt5.QtCore import Qt, QSize, QTimer
-from PyQt5.QtGui import QFont, QPalette, QColor, QResizeEvent
+from PyQt5.QtGui import QFont, QPalette, QColor, QResizeEvent, QIcon
 
 load_dotenv()
 
@@ -108,6 +108,10 @@ class ChatbotWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("ChatbotQT")
         self.setMinimumSize(400, 500)
+        
+        # Set window icon
+        icon = QIcon('chatbot.png')
+        self.setWindowIcon(icon)
         
         # Create main widget and layout
         main_widget = QWidget()

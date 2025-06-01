@@ -41,3 +41,5 @@ python main.py
 - PyQt5
 - requests
 - python-dotenv
+
+For Icon, credit to flaticon author, https://www.flaticon.com/free-icon/chatbot_5226034?term=chatbot&page=1&position=45&origin=tag&related_id=5226034
