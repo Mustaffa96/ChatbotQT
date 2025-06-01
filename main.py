@@ -1,6 +1,8 @@
 import sys
 import os
+import json
 from datetime import datetime
+from pathlib import Path
 
 # Third-party imports
 from dotenv import load_dotenv
@@ -8,12 +10,61 @@ import requests
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout,
     QHBoxLayout, QTextEdit, QPushButton, QLabel, QScrollArea,
-    QSizePolicy
+    QSizePolicy, QInputDialog, QLineEdit
 )
 from PyQt5.QtCore import Qt, QSize, QTimer
 from PyQt5.QtGui import QFont, QPalette, QColor, QResizeEvent, QIcon
 
 load_dotenv()
+
+class APIKeyManager:
+    @staticmethod
+    def get_cache_file():
+        # Store in user's home directory to ensure write permissions
+        home = str(Path.home())
+        cache_dir = os.path.join(home, '.chatbotqt')
+        if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir)
+        return os.path.join(cache_dir, 'api_key.cache')
+    
+    @staticmethod
+    def get_cached_key():
+        try:
+            cache_file = APIKeyManager.get_cache_file()
+            if os.path.exists(cache_file):
+                with open(cache_file, 'r') as f:
+                    return f.read().strip()
+        except Exception as e:
+            print(f"Error reading cache: {e}")
+        return None
+    
+    @staticmethod
+    def save_key(key):
+        if not key or len(key.strip()) < 10:  # Basic validation
+            return False
+            
+        try:
+            cache_file = APIKeyManager.get_cache_file()
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(cache_file), exist_ok=True)
+            with open(cache_file, 'w') as f:
+                f.write(key)
+            print(f"API key saved to: {cache_file}")
+            return True
+        except Exception as e:
+            print(f"Error saving cache: {e}")
+            return False
+            
+    @staticmethod
+    def clear_key():
+        try:
+            cache_file = APIKeyManager.get_cache_file()
+            if os.path.exists(cache_file):
+                os.remove(cache_file)
+                return True
+        except Exception as e:
+            print(f"Error clearing cache: {e}")
+        return False
 
 class MessageBubble(QWidget):
     def __init__(self, message, is_user=True, parent=None):
@@ -112,6 +163,11 @@ class ChatbotWindow(QMainWindow):
         # Set window icon
         icon = QIcon('chatbot.png')
         self.setWindowIcon(icon)
+        
+        # Get or request API key
+        self.api_key = APIKeyManager.get_cached_key()
+        if not self.api_key:
+            self.request_api_key()
         
         # Create main widget and layout
         main_widget = QWidget()
@@ -213,6 +269,27 @@ class ChatbotWindow(QMainWindow):
             if isinstance(widget, MessageBubble):
                 widget.adjust_size()
     
+    def request_api_key(self):
+        dialog = QInputDialog()
+        dialog.setWindowTitle('API Key Required')
+        dialog.setLabelText('Please enter your OpenRouter API key:\n'
+                          'The key will be stored securely at ~/.chatbotqt/api_key.cache\n'
+                          'Copyright 2024 Mustaffa96 GitHub')
+        dialog.setTextEchoMode(QLineEdit.Password)
+        
+        if dialog.exec_() == QInputDialog.Accepted:
+            key = dialog.textValue()
+            if key:
+                if APIKeyManager.save_key(key):
+                    self.api_key = key
+                else:
+                    self.add_message("Error: Invalid API key format", False)
+                    self.request_api_key()  # Try again
+            else:
+                sys.exit()
+        else:
+            sys.exit()
+
     def send_message(self):
         user_message = self.input_field.toPlainText().strip()
         if not user_message:
@@ -226,9 +303,8 @@ class ChatbotWindow(QMainWindow):
         
         try:
             # OpenRouter API endpoint for free Deepseek access
-            api_key = os.getenv('OPENROUTER_API_KEY')
             headers = {
-                'Authorization': f'Bearer {api_key}',
+                'Authorization': f'Bearer {self.api_key}',
                 'Content-Type': 'application/json'
             }
             
@@ -242,6 +318,14 @@ class ChatbotWindow(QMainWindow):
                 headers=headers,
                 json=data
             )
+            
+            if response.status_code == 401:
+                # Invalid API key, request a new one
+                self.api_key = None  # Clear invalid key
+                self.request_api_key()
+                if self.api_key:  # If new key provided, retry the message
+                    self.send_message()
+                return
             
             response_json = response.json()
             bot_response = response_json['choices'][0]['message']['content']

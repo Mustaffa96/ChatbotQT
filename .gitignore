@@ -195,3 +195,12 @@ cython_debug/
 
 # Debug
 .windsurfrules
+
+# Build file
+.build
+
+# App
+.dist
+
+# Spec file
+.ChatbotQT.spec
