@@ -175,7 +175,13 @@ class ChatbotWindow(QMainWindow):
         self.setMinimumSize(400, 500)
 
         # Set window icon
-        icon = QIcon("./public/chatbot.png")
+        if getattr(sys, 'frozen', False):
+            # Running as compiled executable
+            icon_path = os.path.join(sys._MEIPASS, "public", "chatbot.png")
+        else:
+            # Running as script
+            icon_path = os.path.join(os.path.dirname(__file__), "public", "chatbot.png")
+        icon = QIcon(icon_path)
         self.setWindowIcon(icon)
 
         # Get or request API key
