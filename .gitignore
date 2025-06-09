@@ -199,8 +199,3 @@ cython_debug/
 # Build file
 .build
 
-# App
-.dist
-
-# Spec file
-.ChatbotQT.spec
