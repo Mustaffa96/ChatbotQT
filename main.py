@@ -3,6 +3,7 @@ import os
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import List, Dict, Optional
 
 # Third-party imports
 from dotenv import load_dotenv
@@ -21,6 +22,8 @@ from PyQt5.QtWidgets import (
     QInputDialog,
     QLineEdit,
     QFrame,
+    QComboBox,
+    QDialog,
 )
 from PyQt5.QtCore import Qt, QSize, QTimer, QPropertyAnimation, QEasingCurve
 from PyQt5.QtGui import QFont, QPalette, QColor, QResizeEvent, QIcon
@@ -149,6 +152,58 @@ class MessageBubble(QWidget):
             QTimer.singleShot(0, self.animation.start)
 
 
+class ChatSettings(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Chat Settings")
+        self.setMinimumWidth(300)
+        
+        layout = QVBoxLayout()
+        
+        # Model selection
+        model_label = QLabel("AI Model:")
+        self.model_combo = QComboBox()
+        self.model_combo.addItems([
+            "deepseek/deepseek-chat:free",
+            "anthropic/claude-2",
+            "google/palm-2-chat-bison",
+            "meta-llama/llama-2-70b-chat",
+        ])
+        layout.addWidget(model_label)
+        layout.addWidget(self.model_combo)
+        
+        # Personality selection
+        personality_label = QLabel("Chatbot Personality:")
+        self.personality_combo = QComboBox()
+        self.personality_combo.addItems([
+            "Professional",
+            "Friendly",
+            "Technical",
+            "Creative"
+        ])
+        layout.addWidget(personality_label)
+        layout.addWidget(self.personality_combo)
+        
+        # Context window size
+        context_label = QLabel("Context Window (messages):")
+        self.context_combo = QComboBox()
+        self.context_combo.addItems(["5", "10", "15", "20"])
+        layout.addWidget(context_label)
+        layout.addWidget(self.context_combo)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        save_button = QPushButton("Save")
+        save_button.clicked.connect(self.accept)
+        cancel_button = QPushButton("Cancel")
+        cancel_button.clicked.connect(self.reject)
+        button_layout.addWidget(save_button)
+        button_layout.addWidget(cancel_button)
+        layout.addLayout(button_layout)
+        
+        self.setLayout(layout)
+
+
 class ChatbotWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -156,6 +211,11 @@ class ChatbotWindow(QMainWindow):
         self.setMinimumSize(500, 600)
         self.setProperty("darkTheme", False)
 
+        # Initialize settings
+        self.model = "deepseek/deepseek-chat:free"
+        self.personality = "Professional"
+        self.context_window = 10
+        
         # Initialize API key
         self.api_key = APIKeyManager.get_cached_key()
         if not self.api_key:
@@ -168,7 +228,7 @@ class ChatbotWindow(QMainWindow):
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # Create header
+        # Create header with settings button
         header = QWidget()
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(15, 10, 15, 10)
@@ -176,10 +236,24 @@ class ChatbotWindow(QMainWindow):
         title = QLabel("ChatbotQT")
         title.setFont(QFont("Segoe UI", 12, QFont.Bold))
         
-        # Create theme toggle button
+        settings_button = QPushButton()
+        settings_button.setIcon(QIcon(os.path.join("public", "icons", "settings.png")))
+        settings_button.setFixedSize(32, 32)
+        settings_button.clicked.connect(self.show_settings)
+        settings_button.setStyleSheet("""
+            QPushButton {
+                border: none;
+                border-radius: 16px;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: rgba(0, 0, 0, 0.1);
+            }
+        """)
+        
+        # Theme toggle button
         self.theme_button = QPushButton()
         self.theme_button.setFixedSize(32, 32)
-        # Set initial icon
         self.update_theme_icon()
         self.theme_button.clicked.connect(self.toggle_theme)
         self.theme_button.setStyleSheet("""
@@ -195,8 +269,9 @@ class ChatbotWindow(QMainWindow):
         
         header_layout.addWidget(title)
         header_layout.addStretch()
+        header_layout.addWidget(settings_button)
         header_layout.addWidget(self.theme_button)
-        
+
         # Create scroll area for chat
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
@@ -236,8 +311,16 @@ class ChatbotWindow(QMainWindow):
         layout.addWidget(self.scroll_area)
         layout.addWidget(input_container)
 
-        # Initialize conversation history
-        self.conversation_history = []
+        # Initialize conversation history with system message
+        self.conversation_history = [
+            {
+                "role": "system",
+                "content": self.get_personality_prompt()
+            }
+        ]
+        
+        # Initialize message cache for context window
+        self.message_cache = []
         
         # Initialize loading indicator
         self.loading_indicator = None
@@ -359,6 +442,48 @@ class ChatbotWindow(QMainWindow):
                 }
             """)
         
+    def get_personality_prompt(self) -> str:
+        prompts = {
+            "Professional": "You are a professional assistant. Provide clear, concise, and accurate responses in a formal tone.",
+            "Friendly": "You are a friendly and approachable assistant. Use a casual, warm tone and engage in natural conversation.",
+            "Technical": "You are a technical expert. Provide detailed technical explanations and use industry-standard terminology.",
+            "Creative": "You are a creative assistant. Think outside the box and provide innovative solutions with an imaginative flair."
+        }
+        return prompts.get(self.personality, prompts["Professional"])
+
+    def show_settings(self):
+        dialog = ChatSettings(self)
+        dialog.model_combo.setCurrentText(self.model)
+        dialog.personality_combo.setCurrentText(self.personality)
+        dialog.context_combo.setCurrentText(str(self.context_window))
+        
+        if dialog.exec_() == QDialog.Accepted:
+            # Update settings
+            new_model = dialog.model_combo.currentText()
+            new_personality = dialog.personality_combo.currentText()
+            new_context = int(dialog.context_combo.currentText())
+            
+            # Only reset conversation if settings changed
+            if (new_model != self.model or 
+                new_personality != self.personality or 
+                new_context != self.context_window):
+                
+                self.model = new_model
+                self.personality = new_personality
+                self.context_window = new_context
+                
+                # Reset conversation with new system message
+                self.conversation_history = [
+                    {
+                        "role": "system",
+                        "content": self.get_personality_prompt()
+                    }
+                ]
+                self.message_cache = []
+                
+                # Add system message to chat
+                self.add_message("Settings updated. Starting new conversation.", False)
+
     def add_message(self, message, is_user=True):
         bubble = MessageBubble(message, is_user)
         self.chat_layout.addWidget(bubble)
@@ -418,19 +543,24 @@ class ChatbotWindow(QMainWindow):
         self.loading_indicator = loading_message
         self.scroll_to_bottom()
 
-        # Add user message to conversation history
-        self.conversation_history.append({"role": "user", "content": user_message})
+        # Update message cache
+        self.message_cache.append({"role": "user", "content": user_message})
+        if len(self.message_cache) > self.context_window:
+            self.message_cache.pop(0)
+
+        # Construct conversation history with system message and cached messages
+        current_conversation = [self.conversation_history[0]] + self.message_cache
 
         try:
-            # OpenRouter API endpoint for free Deepseek access
+            # OpenRouter API endpoint
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
             }
 
             data = {
-                "model": "deepseek/deepseek-chat:free",
-                "messages": self.conversation_history,
+                "model": self.model,
+                "messages": current_conversation,
             }
 
             response = requests.post(
@@ -456,10 +586,11 @@ class ChatbotWindow(QMainWindow):
             response_json = response.json()
             bot_response = response_json["choices"][0]["message"]["content"]
 
-            # Add bot response to conversation history
-            self.conversation_history.append(
-                {"role": "assistant", "content": bot_response}
-            )
+            # Update message cache with bot response
+            self.message_cache.append({"role": "assistant", "content": bot_response})
+            if len(self.message_cache) > self.context_window:
+                self.message_cache.pop(0)
+
             self.add_message(bot_response, False)
 
         except Exception as e:
