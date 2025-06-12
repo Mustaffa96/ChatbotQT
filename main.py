@@ -28,9 +28,17 @@ from PyQt5.QtWidgets import (
     QComboBox,
     QDialog,
     QMessageBox,
-    QSpinBox
+    QSpinBox,
 )
-from PyQt5.QtCore import Qt, QSize, QTimer, QPropertyAnimation, QEasingCurve, QBuffer, QByteArray
+from PyQt5.QtCore import (
+    Qt,
+    QSize,
+    QTimer,
+    QPropertyAnimation,
+    QEasingCurve,
+    QBuffer,
+    QByteArray,
+)
 from PyQt5.QtGui import QFont, QPalette, QColor, QResizeEvent, QIcon, QPixmap, QImage
 
 load_dotenv()
@@ -124,7 +132,7 @@ class MessageBubble(QWidget):
         # WhatsApp colors (constant regardless of theme)
         user_bg = "#E1FFC7"  # WhatsApp light green
         user_text = "#000000"  # Black text
-        bot_bg = "#FFFFFF"    # White background
+        bot_bg = "#FFFFFF"  # White background
         bot_text = "#000000"  # Black text
 
         self.bubble.setStyleSheet(f"""
@@ -141,19 +149,25 @@ class MessageBubble(QWidget):
         if image_path:
             image_label = QLabel()
             pixmap = QPixmap(image_path)
-            scaled_pixmap = pixmap.scaled(300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            scaled_pixmap = pixmap.scaled(
+                300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
             image_label.setPixmap(scaled_pixmap)
             container_layout.addWidget(image_label)
 
         # Set size policies for dynamic resizing
         self.bubble.setMinimumWidth(50)
-        self.bubble.setMaximumWidth(int(self.window().width() * 0.7) if self.window() else 500)
+        self.bubble.setMaximumWidth(
+            int(self.window().width() * 0.7) if self.window() else 500
+        )
 
         container_layout.addWidget(self.bubble)
 
         # Add timestamp with WhatsApp style color
         time = QLabel(datetime.now().strftime("%H:%M"))
-        time.setStyleSheet("color: #9E9595; font-size: 10px;")  # WhatsApp timestamp color
+        time.setStyleSheet(
+            "color: #9E9595; font-size: 10px;"
+        )  # WhatsApp timestamp color
         time.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         container_layout.addWidget(time, alignment=Qt.AlignRight)
 
@@ -182,7 +196,7 @@ class ChatSettings(QDialog):
         # Model selection
         model_label = QLabel("AI Model:")
         self.model_combo = QComboBox()
-        
+
         # Define models with their colors
         models = [
             # Most Reliable Free Models (Green)
@@ -200,18 +214,14 @@ class ChatSettings(QDialog):
             ("anthropic/claude-2", "red"),
             ("anthropic/claude-2.1", "red"),
             ("openai/gpt-4", "red"),
-            ("openai/gpt-4-32k", "red")
+            ("openai/gpt-4-32k", "red"),
         ]
 
         # Add items with colors
         for model, color in models:
             self.model_combo.addItem(model)
             index = self.model_combo.count() - 1
-            self.model_combo.setItemData(
-                index, 
-                QColor(color), 
-                Qt.ForegroundRole
-            )
+            self.model_combo.setItemData(index, QColor(color), Qt.ForegroundRole)
 
         layout.addWidget(model_label)
         layout.addWidget(self.model_combo)
@@ -219,12 +229,9 @@ class ChatSettings(QDialog):
         # Personality selection
         personality_label = QLabel("Chatbot Personality:")
         self.personality_combo = QComboBox()
-        self.personality_combo.addItems([
-            "Professional",
-            "Friendly",
-            "Technical",
-            "Creative"
-        ])
+        self.personality_combo.addItems(
+            ["Professional", "Friendly", "Technical", "Creative"]
+        )
         layout.addWidget(personality_label)
         layout.addWidget(self.personality_combo)
 
@@ -281,7 +288,7 @@ class ApiWorker(QThread):
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers=headers,
                 json=data,
-                timeout=30
+                timeout=30,
             )
 
             response_json = response.json()
@@ -302,22 +309,21 @@ class DatabaseManager:
     def init_db(self):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS messages (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     role TEXT NOT NULL,
                     content TEXT NOT NULL,
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
-            ''')
+            """)
             conn.commit()
 
     def save_message(self, role: str, content: str):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
-                'INSERT INTO messages (role, content) VALUES (?, ?)',
-                (role, content)
+                "INSERT INTO messages (role, content) VALUES (?, ?)", (role, content)
             )
             conn.commit()
 
@@ -325,10 +331,13 @@ class DatabaseManager:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
-                'SELECT role, content FROM messages ORDER BY timestamp DESC LIMIT ?',
-                (limit,)
+                "SELECT role, content FROM messages ORDER BY timestamp DESC LIMIT ?",
+                (limit,),
             )
-            return [{"role": role, "content": content} for role, content in cursor.fetchall()]
+            return [
+                {"role": role, "content": content}
+                for role, content in cursor.fetchall()
+            ]
 
 
 class ChatbotWindow(QMainWindow):
@@ -340,7 +349,11 @@ class ChatbotWindow(QMainWindow):
         self.setWindowTitle("ChatbotQT")
         self.setMinimumSize(500, 600)
         self.setProperty("darkTheme", False)
-
+        
+        # Set window icon
+        icon = QIcon(resource_path(os.path.join("public", "chatbot.png")))
+        self.setWindowIcon(icon)
+        
         # Initialize API key
         self.api_key = APIKeyManager.get_cached_key()
         if not self.api_key:
@@ -365,7 +378,7 @@ class ChatbotWindow(QMainWindow):
 
         # Header layout with settings button
         header_layout = QHBoxLayout()
-        
+
         # Theme toggle button with round borders
         self.theme_toggle = QPushButton("🌙" if self.property("darkTheme") else "☀️")
         self.theme_toggle.setFixedSize(40, 40)
@@ -456,7 +469,7 @@ class ChatbotWindow(QMainWindow):
         """)
 
         send_button = QPushButton()
-        send_button.setIcon(QIcon(os.path.join("public","icons", "send.png")))
+        send_button.setIcon(QIcon(resource_path(os.path.join("public", "icons", "send.png"))))
         send_button.setFixedSize(40, 40)
         send_button.setStyleSheet("""
             QPushButton {
@@ -479,13 +492,12 @@ class ChatbotWindow(QMainWindow):
         layout.addWidget(input_container)
 
         # Initialize theme
-        self.toggle_theme()  
+        self.toggle_theme()
 
         # Initialize conversation history with system message
-        self.conversation_history.append({
-            "role": "system",
-            "content": self.get_personality_prompt()
-        })
+        self.conversation_history.append(
+            {"role": "system", "content": self.get_personality_prompt()}
+        )
 
         # Add messages to chat
         for msg in reversed(self.conversation_history):
@@ -501,10 +513,10 @@ class ChatbotWindow(QMainWindow):
     def apply_theme(self):
         """Apply the current theme (light/dark) to the window."""
         is_dark = self.property("darkTheme")
-        
+
         # Create palette for the theme
         palette = QPalette()
-        
+
         if is_dark:
             # Dark theme colors
             palette.setColor(QPalette.Window, QColor(53, 53, 53))
@@ -541,11 +553,11 @@ class ChatbotWindow(QMainWindow):
         # Update input field style
         self.input_field.setStyleSheet(f"""
             QTextEdit {{
-                border: 1px solid {'#666' if is_dark else '#ccc'};
+                border: 1px solid {"#666" if is_dark else "#ccc"};
                 border-radius: 20px;
                 padding: 10px;
-                background-color: {QColor(53, 53, 53).name() if is_dark else 'white'};
-                color: {'white' if is_dark else 'black'};
+                background-color: {QColor(53, 53, 53).name() if is_dark else "white"};
+                color: {"white" if is_dark else "black"};
             }}
         """)
 
@@ -553,21 +565,21 @@ class ChatbotWindow(QMainWindow):
         self.scroll_area.setStyleSheet(f"""
             QScrollArea {{
                 border: none;
-                background-color: {'#2c2c2c' if is_dark else 'transparent'};
+                background-color: {"#2c2c2c" if is_dark else "transparent"};
             }}
             QScrollBar:vertical {{
                 border: none;
-                background-color: {'#404040' if is_dark else '#f0f0f0'};
+                background-color: {"#404040" if is_dark else "#f0f0f0"};
                 width: 10px;
                 margin: 0px;
             }}
             QScrollBar::handle:vertical {{
-                background-color: {'#666' if is_dark else '#c1c1c1'};
+                background-color: {"#666" if is_dark else "#c1c1c1"};
                 min-height: 30px;
                 border-radius: 5px;
             }}
             QScrollBar::handle:vertical:hover {{
-                background-color: {'#808080' if is_dark else '#a8a8a8'};
+                background-color: {"#808080" if is_dark else "#a8a8a8"};
             }}
         """)
 
@@ -581,14 +593,14 @@ class ChatbotWindow(QMainWindow):
         """Toggle between light and dark theme"""
         is_dark = not self.property("darkTheme")
         self.setProperty("darkTheme", is_dark)
-        
+
         # Update theme toggle button text
         self.theme_toggle.setText("🌙" if is_dark else "☀️")
-        
+
         # Update application style
         app = QApplication.instance()
         palette = QPalette()
-        
+
         if is_dark:
             # Dark theme colors
             palette.setColor(QPalette.Window, QColor(53, 53, 53))
@@ -673,7 +685,7 @@ class ChatbotWindow(QMainWindow):
                 user_text = "#FFFFFF" if is_dark else "#000000"
                 bot_bg = "#383838" if is_dark else "#FFFFFF"
                 bot_text = "#FFFFFF" if is_dark else "#000000"
-                
+
                 widget.bubble.setStyleSheet(f"""
                     QTextEdit {{
                         background-color: {user_bg if is_user else bot_bg};
@@ -689,7 +701,7 @@ class ChatbotWindow(QMainWindow):
             "Professional": "You are a professional assistant. Provide clear, concise, and accurate responses in a formal tone.",
             "Friendly": "You are a friendly and approachable assistant. Use a casual, warm tone and engage in natural conversation.",
             "Technical": "You are a technical expert. Provide detailed technical explanations and use industry-standard terminology.",
-            "Creative": "You are a creative assistant. Think outside the box and provide innovative solutions with an imaginative flair."
+            "Creative": "You are a creative assistant. Think outside the box and provide innovative solutions with an imaginative flair.",
         }
         return prompts.get(self.personality, prompts["Professional"])
 
@@ -706,20 +718,18 @@ class ChatbotWindow(QMainWindow):
             new_context = int(dialog.context_combo.currentText())
 
             # Only reset conversation if settings changed
-            if (new_model != self.model or
-                    new_personality != self.personality or
-                    new_context != self.context_window):
-
+            if (
+                new_model != self.model
+                or new_personality != self.personality
+                or new_context != self.context_window
+            ):
                 self.model = new_model
                 self.personality = new_personality
                 self.context_window = new_context
 
                 # Reset conversation with new system message
                 self.conversation_history = [
-                    {
-                        "role": "system",
-                        "content": self.get_personality_prompt()
-                    }
+                    {"role": "system", "content": self.get_personality_prompt()}
                 ]
                 self.message_cache = []
 
@@ -829,7 +839,19 @@ class ChatbotWindow(QMainWindow):
             self.loading_indicator.deleteLater()
             self.loading_indicator = None
 
-        self.add_message(f"Error: Could not get response from API. {error_message}", False)
+        self.add_message(
+            f"Error: Could not get response from API. {error_message}", False
+        )
+
+
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 
 if __name__ == "__main__":
