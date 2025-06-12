@@ -1,0 +1,44 @@
+1. Writing Clean Code for PyQt
+a. Follow PEP 8 and Python Naming Conventions
+Use descriptive names for classes, methods, and variables (e.g., MainWindow, update_label, user_input).
+Class names: Use CamelCase for PyQt widget classes (e.g., CustomDialog).
+Functions and variables: Use snake_case (e.g., calculate_total, button_clicked).
+Limit line length to 79–88 characters for readability (per PEP 8).
+Use consistent indentation (4 spaces).
+b. Organize Code into Classes and Modules
+Use classes for widgets: Encapsulate PyQt widgets (e.g., QMainWindow, QDialog) in classes to group related functionality.
+Split code into modules
+c. Use Qt Designer for UI Layouts
+Design UI layouts with Qt Designer to create .ui files, then convert them to Python code using pyuic5
+Don’t modify generated UI code: Instead, subclass the generated UI class to add logic
+d. Handle Signals and Slots Cleanly
+Use new-style signal-slot syntax for clarity and type safety
+Avoid lambda functions unless necessary, as they can obscure intent
+Group signal-slot connections in a dedicated method (e.g., connect_signals)
+e. Keep UI and Logic Separate
+Follow the MVC (Model-View-Controller) pattern or similar:
+View: PyQt widgets (UI).
+Model: Data structures or database logic.
+Controller: Mediates between view and model.
+f. Use Type Hints and Docstrings
+Add type hints for better code clarity and IDE support:
+Write concise docstrings for classes, methods, and functions to explain their purpose.
+g. Handle Resources Properly
+Use Qt Resource System (pyrcc5) for managing images, icons, etc.
+Import resources in your code
+
+2. Optimizing PyQt Code
+Optimization focuses on reducing memory usage, improving responsiveness, and minimizing CPU load.
+a. Minimize Widget Creation
+Reuse widgets instead of creating new ones repeatedly:
+b. Use Layouts for Dynamic UI
+Use QVBoxLayout, QHBoxLayout, or QGridLayout instead of fixed positions to handle resizing and dynamic content efficiently.
+c. Optimize Signal Handling
+Disconnect signals when no longer needed to prevent memory leaks:
+Use QSignalBlocker to temporarily block signals during batch updates
+d. Use QThread for Long-Running Tasks
+Move heavy computations to a QThread to keep the UI responsive
+e. Cache Expensive Operations
+Cache results of expensive computations or database queries
+f. Use QTimer for Periodic Tasks
+Use QTimer instead of loops for periodic updates

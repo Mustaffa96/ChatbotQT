@@ -1,45 +1,96 @@
-# Deepseek Chatbot
+# ChatbotQT
 
-A desktop chatbot application built with PyQt5 that integrates with the Deepseek API through OpenRouter (free access).
+A modern desktop chatbot application built with PyQt5 and integrated with the Deepseek API.
 
 ## Features
-- Modern dark-themed UI
-- Real-time chat interface
-- Integration with Deepseek's AI model (free through OpenRouter)
-- Conversation history support
 
-## Setup
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Get your free OpenRouter API key:
-   - Visit [OpenRouter](https://www.openrouter.ai/)
-   - Sign up or log in
-   - Navigate to the API section
-   - Click "Create Key" to generate your API key
-4. Copy `.env.template` to `.env`:
-   ```bash
-   cp .env.template .env
-   ```
-5. Edit `.env` and replace `your_openrouter_api_key_here` with your OpenRouter API key
+- Modern, responsive UI with light/dark theme support
+- Integration with Deepseek API for intelligent responses
+- Message history with SQLite storage
+- Configurable chat settings
+- Cross-platform support (Windows, macOS, Linux)
 
-## Running the Application
+## Prerequisites
+
+- Python 3.8 or higher
+- PyQt5
+- OpenRouter API key (get one from [OpenRouter](https://openrouter.ai/keys))
+
+## Installation
+
+1. Clone the repository:
 ```bash
-python main.py
+git clone https://github.com/Mustaffa96/ChatbotQT.git
+cd ChatbotQT
 ```
 
-## Usage
-1. Launch the application
-2. Type your message in the input field
-3. Click "Send" or press Enter to send your message
-4. The AI response will appear in the chat window
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-## Requirements
-- Python 3.7+
-- PyQt5
-- requests
-- python-dotenv
+3. Create a `.env` file:
+```bash
+cp .env.example .env
+```
+Edit `.env` and add your OpenRouter API key.
 
-For Icon, credit to flaticon author, https://www.flaticon.com/free-icon/chatbot_5226034?term=chatbot&page=1&position=45&origin=tag&related_id=5226034
+## Development Setup
+
+1. Create a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+2. Install development dependencies:
+```bash
+pip install -r requirements-dev.txt
+```
+
+3. Run tests:
+```bash
+python -m pytest tests/
+```
+
+## Project Structure
+
+```
+ChatbotQT/
+├── chatbotqt/           # Main package
+│   ├── ui/             # UI components
+│   │   ├── chat_window.py
+│   │   ├── message_bubble.py
+│   │   └── settings_dialog.py
+│   ├── utils/          # Utility modules
+│   │   ├── api_manager.py
+│   │   ├── db_manager.py
+│   │   └── api_worker.py
+│   └── __init__.py
+├── tests/              # Test suite
+├── public/             # Static assets
+├── .env.example        # Example environment variables
+├── requirements.txt    # Production dependencies
+└── README.md          # This file
+```
+
+## Configuration
+
+The application can be configured through environment variables in the `.env` file:
+
+- `OPENROUTER_API_KEY`: Your OpenRouter API key
+- `DEFAULT_MODEL`: Default chat model to use
+- `CONTEXT_WINDOW`: Number of messages to keep in context
+- `DEFAULT_THEME`: UI theme (light/dark)
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and ensure they pass
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
