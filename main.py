@@ -20,8 +20,9 @@ from PyQt5.QtWidgets import (
     QSizePolicy,
     QInputDialog,
     QLineEdit,
+    QFrame,
 )
-from PyQt5.QtCore import Qt, QSize, QTimer
+from PyQt5.QtCore import Qt, QSize, QTimer, QPropertyAnimation, QEasingCurve
 from PyQt5.QtGui import QFont, QPalette, QColor, QResizeEvent, QIcon
 
 load_dotenv()
@@ -84,205 +85,280 @@ class MessageBubble(QWidget):
         layout = QHBoxLayout()
         layout.setContentsMargins(10, 5, 10, 5)
 
+        # Create message container
+        container = QFrame()
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(10, 10, 10, 5)
+
         # Create message bubble
         self.bubble = QTextEdit()
         self.bubble.setReadOnly(True)
-        self.bubble.setFont(QFont("Arial", 10))
+        self.bubble.setFont(QFont("Segoe UI", 10))
         self.bubble.setText(message)
         self.bubble.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.bubble.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
-        # Style the bubble
-        self.bubble.setStyleSheet(
-            f"""
+        # Add typing animation for bot messages
+        self.opacity = 0.0 if not is_user else 1.0
+        self.animation = QPropertyAnimation(self, b"windowOpacity")
+        self.animation.setDuration(200)
+        self.animation.setStartValue(0.0)
+        self.animation.setEndValue(1.0)
+        self.animation.setEasingCurve(QEasingCurve.InOutQuad)
+        
+        # Style the bubble based on theme
+        is_dark = self.window().property("darkTheme") if self.window() else False
+        user_bg = "#128C7E" if is_dark else "#DCF8C6"
+        user_text = "#FFFFFF" if is_dark else "#000000"
+        bot_bg = "#383838" if is_dark else "#FFFFFF"
+        bot_text = "#FFFFFF" if is_dark else "#000000"
+        
+        self.bubble.setStyleSheet(f"""
             QTextEdit {{
-                background-color: {"#DCF8C6" if is_user else "#FFFFFF"};
-                border-radius: 10px;
-                padding: 10px;
-                margin: {"0px 10px 0px 50px" if is_user else "0px 50px 0px 10px"};
+                background-color: {user_bg if is_user else bot_bg};
+                color: {user_text if is_user else bot_text};
+                border-radius: 15px;
+                padding: 8px;
+                border: none;
             }}
-            """
-        )
+        """)
 
         # Set size policies for dynamic resizing
         self.bubble.setMinimumWidth(50)
-        self.bubble.setMaximumWidth(
-            int(self.window().width() * 0.6) if self.window() else 400
-        )
+        self.bubble.setMaximumWidth(int(self.window().width() * 0.7) if self.window() else 500)
 
-        # Connect size adjustment with debouncing
-        self._resize_timer = QTimer()
-        self._resize_timer.setSingleShot(True)
-        self._resize_timer.timeout.connect(lambda: self.adjust_size())
-
-        self.bubble.document().documentLayout().documentSizeChanged.connect(
-            lambda: self._resize_timer.start(100)
-        )
+        container_layout.addWidget(self.bubble)
 
         # Add timestamp
         time = QLabel(datetime.now().strftime("%H:%M"))
-        time.setStyleSheet("color: #999999; font-size: 10px;")
+        time.setStyleSheet(f"color: {'#A0A0A0' if is_dark else '#666666'}; font-size: 10px;")
         time.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        container_layout.addWidget(time, alignment=Qt.AlignRight)
 
         # Layout arrangement
         if is_user:
             layout.addStretch()
-            layout.addWidget(self.bubble)
-            layout.addWidget(time)
+            layout.addWidget(container)
         else:
-            layout.addWidget(self.bubble)
-            layout.addWidget(time)
+            layout.addWidget(container)
             layout.addStretch()
 
         self.setLayout(layout)
-        QTimer.singleShot(0, self.adjust_size)
-
-    def adjust_size(self):
-        if not self.bubble:
-            return
-
-        # Update maximum width based on window size
-        if self.window():
-            self.bubble.setMaximumWidth(int(self.window().width() * 0.6))
-
-        # Calculate required size based on content
-        doc_size = self.bubble.document().size()
-        margins = self.bubble.contentsMargins()
-
-        # Calculate width and height
-        content_width = doc_size.width()
-        padding = margins.left() + margins.right() + 40
-
-        # Set width based on content, with constraints
-        max_width = self.bubble.maximumWidth()
-        min_width = 50
-        width = min(max_width, max(min_width, int(content_width + padding)))
-
-        # Calculate height with padding
-        height = int(doc_size.height() + margins.top() + margins.bottom() + 20)
-
-        # Set the new size
-        self.bubble.setFixedSize(width, height)
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self.adjust_size()
+        
+        if not is_user:
+            QTimer.singleShot(0, self.animation.start)
 
 
 class ChatbotWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("ChatbotQT")
-        self.setMinimumSize(400, 500)
+        self.setMinimumSize(500, 600)
+        self.setProperty("darkTheme", False)
 
-        # Set window icon
-        if getattr(sys, 'frozen', False):
-            # Running as compiled executable
-            icon_path = os.path.join(sys._MEIPASS, "public", "chatbot.png")
-        else:
-            # Running as script
-            icon_path = os.path.join(os.path.dirname(__file__), "public", "chatbot.png")
-        icon = QIcon(icon_path)
-        self.setWindowIcon(icon)
-
-        # Get or request API key
+        # Initialize API key
         self.api_key = APIKeyManager.get_cached_key()
         if not self.api_key:
             self.request_api_key()
 
-        # Create main widget and layout
-        main_widget = QWidget()
-        self.setCentralWidget(main_widget)
-        layout = QVBoxLayout(main_widget)
+        # Create central widget and main layout
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        layout = QVBoxLayout(central_widget)
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # Chat display area with scroll
-        chat_container = QWidget()
-        self.chat_layout = QVBoxLayout(chat_container)
-        self.chat_layout.addStretch()
-
-        # Add copyright footer
-        footer = QLabel(f"Copyright {datetime.now().year} Mustaffa96 GitHub")
-        footer.setAlignment(Qt.AlignCenter)
-        footer.setStyleSheet("""
-            QLabel {
-                color: #999999;
-                font-size: 10px;
-                padding: 5px;
-                background-color: #ECE5DD;
-            }
-        """)
-        self.chat_layout.addWidget(footer)
-
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidget(chat_container)
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setStyleSheet("""
-            QScrollArea { 
-                border: none; 
-                background-color: #ECE5DD; 
-            }
-            QScrollBar:vertical {
-                border: none;
-                background: #F0F0F0;
-                width: 10px;
-                margin: 0px;
-            }
-            QScrollBar::handle:vertical {
-                background: #128C7E;
-                min-height: 20px;
-                border-radius: 5px;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                height: 0px;
-            }
-        """)
-
-        layout.addWidget(self.scroll_area)
-
-        # Input area
-        input_container = QWidget()
-        input_container.setStyleSheet("background-color: #F0F0F0; padding: 10px;")
-        input_layout = QHBoxLayout(input_container)
-        input_layout.setContentsMargins(10, 10, 10, 10)
-
-        self.input_field = QTextEdit()
-        self.input_field.setFixedHeight(50)
-        self.input_field.setFont(QFont("Arial", 10))
-        self.input_field.setStyleSheet("""
-            QTextEdit {
-                border-radius: 20px;
-                padding: 10px;
-                background-color: white;
-                border: none;
-            }
-        """)
-        self.input_field.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-
-        send_button = QPushButton("Send")
-        send_button.setFixedSize(70, 50)
-        send_button.setStyleSheet("""
+        # Create header
+        header = QWidget()
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(15, 10, 15, 10)
+        
+        title = QLabel("ChatbotQT")
+        title.setFont(QFont("Segoe UI", 12, QFont.Bold))
+        
+        # Create theme toggle button
+        self.theme_button = QPushButton()
+        self.theme_button.setFixedSize(32, 32)
+        # Set initial icon
+        self.update_theme_icon()
+        self.theme_button.clicked.connect(self.toggle_theme)
+        self.theme_button.setStyleSheet("""
             QPushButton {
-                background-color: #128C7E;
-                color: white;
-                border-radius: 20px;
-                font-weight: bold;
+                border: none;
+                border-radius: 16px;
+                padding: 5px;
             }
             QPushButton:hover {
-                background-color: #075E54;
+                background-color: rgba(0, 0, 0, 0.1);
             }
         """)
+        
+        header_layout.addWidget(title)
+        header_layout.addStretch()
+        header_layout.addWidget(self.theme_button)
+        
+        # Create scroll area for chat
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+
+        # Create chat container
+        chat_container = QWidget()
+        self.chat_layout = QVBoxLayout(chat_container)
+        self.chat_layout.setAlignment(Qt.AlignTop)
+        self.chat_layout.setSpacing(10)
+        self.chat_layout.setContentsMargins(0, 10, 0, 10)
+        
+        self.scroll_area.setWidget(chat_container)
+
+        # Create input container
+        input_container = QWidget()
+        input_layout = QHBoxLayout(input_container)
+        input_layout.setContentsMargins(15, 15, 15, 15)
+
+        self.input_field = QTextEdit()
+        self.input_field.setPlaceholderText("Type your message here...")
+        self.input_field.setMaximumHeight(100)
+        self.input_field.setFont(QFont("Segoe UI", 10))
+        
+        send_button = QPushButton()
+        send_button.setIcon(QIcon(os.path.join("public", "icons", "send.png") if not getattr(sys, 'frozen', False) 
+                                else os.path.join(sys._MEIPASS, "public", "icons", "send.png")))
+        send_button.setFixedSize(40, 40)
         send_button.clicked.connect(self.send_message)
 
         input_layout.addWidget(self.input_field)
         input_layout.addWidget(send_button)
+
+        # Add widgets to main layout
+        layout.addWidget(header)
+        layout.addWidget(self.scroll_area)
         layout.addWidget(input_container)
 
         # Initialize conversation history
         self.conversation_history = []
-
+        
+        # Initialize loading indicator
+        self.loading_indicator = None
+        
+        # Apply initial theme
+        self.apply_theme()
+        
         self.show()
 
+    def update_theme_icon(self):
+        is_dark = self.property("darkTheme")
+        icon_name = "light.png" if is_dark else "dark.png"
+        icon_path = os.path.join("public", "icons", icon_name)
+        if getattr(sys, 'frozen', False):
+            icon_path = os.path.join(sys._MEIPASS, "public", "icons", icon_name)
+        self.theme_button.setIcon(QIcon(icon_path))
+
+    def toggle_theme(self):
+        self.setProperty("darkTheme", not self.property("darkTheme"))
+        self.update_theme_icon()
+        self.apply_theme()
+        
+    def apply_theme(self):
+        is_dark = self.property("darkTheme")
+        
+        # Set application style
+        if is_dark:
+            self.setStyleSheet("""
+                QMainWindow {
+                    background-color: #1E1E1E;
+                }
+                QLabel {
+                    color: #FFFFFF;
+                }
+                QScrollArea {
+                    background-color: #1E1E1E;
+                    border: none;
+                }
+                QWidget#chat_container {
+                    background-color: #1E1E1E;
+                }
+                QTextEdit {
+                    background-color: #383838;
+                    color: #FFFFFF;
+                    border: none;
+                    border-radius: 20px;
+                    padding: 10px;
+                }
+                QTextEdit:focus {
+                    border: 2px solid #128C7E;
+                }
+                QPushButton {
+                    background-color: #128C7E;
+                    color: white;
+                    border-radius: 20px;
+                }
+                QPushButton:hover {
+                    background-color: #0F7A6C;
+                }
+                QScrollBar:vertical {
+                    border: none;
+                    background: #383838;
+                    width: 10px;
+                    margin: 0px;
+                }
+                QScrollBar::handle:vertical {
+                    background: #666666;
+                    border-radius: 5px;
+                }
+                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                    height: 0px;
+                }
+            """)
+        else:
+            self.setStyleSheet("""
+                QMainWindow {
+                    background-color: #F0F2F5;
+                }
+                QLabel {
+                    color: #000000;
+                }
+                QScrollArea {
+                    background-color: #F0F2F5;
+                    border: none;
+                }
+                QWidget#chat_container {
+                    background-color: #F0F2F5;
+                }
+                QTextEdit {
+                    background-color: #FFFFFF;
+                    color: #000000;
+                    border: none;
+                    border-radius: 20px;
+                    padding: 10px;
+                }
+                QTextEdit:focus {
+                    border: 2px solid #128C7E;
+                }
+                QPushButton {
+                    background-color: #128C7E;
+                    color: white;
+                    border-radius: 20px;
+                }
+                QPushButton:hover {
+                    background-color: #0F7A6C;
+                }
+                QScrollBar:vertical {
+                    border: none;
+                    background: #F0F2F5;
+                    width: 10px;
+                    margin: 0px;
+                }
+                QScrollBar::handle:vertical {
+                    background: #C4C4C4;
+                    border-radius: 5px;
+                }
+                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                    height: 0px;
+                }
+            """)
+        
     def add_message(self, message, is_user=True):
         bubble = MessageBubble(message, is_user)
         self.chat_layout.addWidget(bubble)
@@ -300,7 +376,11 @@ class ChatbotWindow(QMainWindow):
         for i in range(self.chat_layout.count()):
             widget = self.chat_layout.itemAt(i).widget()
             if isinstance(widget, MessageBubble):
-                widget.adjust_size()
+                # Update the maximum width of the bubble
+                if widget.bubble:
+                    widget.bubble.setMaximumWidth(int(self.width() * 0.7))
+                    widget.bubble.document().adjustSize()
+                    widget.adjustSize()
 
     def request_api_key(self):
         dialog = QInputDialog()
@@ -331,6 +411,12 @@ class ChatbotWindow(QMainWindow):
 
         self.add_message(user_message, True)
         self.input_field.clear()
+        
+        # Show loading indicator
+        loading_message = MessageBubble("...", False)
+        self.chat_layout.addWidget(loading_message)
+        self.loading_indicator = loading_message
+        self.scroll_to_bottom()
 
         # Add user message to conversation history
         self.conversation_history.append({"role": "user", "content": user_message})
@@ -353,6 +439,12 @@ class ChatbotWindow(QMainWindow):
                 json=data,
             )
 
+            # Remove loading indicator
+            if self.loading_indicator:
+                self.chat_layout.removeWidget(self.loading_indicator)
+                self.loading_indicator.deleteLater()
+                self.loading_indicator = None
+
             if response.status_code == 401:
                 # Invalid API key, request a new one
                 self.api_key = None  # Clear invalid key
@@ -371,6 +463,12 @@ class ChatbotWindow(QMainWindow):
             self.add_message(bot_response, False)
 
         except Exception as e:
+            # Remove loading indicator
+            if self.loading_indicator:
+                self.chat_layout.removeWidget(self.loading_indicator)
+                self.loading_indicator.deleteLater()
+                self.loading_indicator = None
+            
             self.add_message(f"Error: Could not get response from API. {str(e)}", False)
 
 
