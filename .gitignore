@@ -194,7 +194,7 @@ cython_debug/
 .cursorindexingignore
 
 # Debug
-# .windsurfrules
+.windsurfrules
 
 # Build file
 .build
